@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 @Autonomous (group= "Auto", name = "Autonomous3 (Blocks to Java)")
-public class Autonomous3 extends LinearOpMode{
+public class Autonomous3 extends LinearOpMode {
   private DcMotor Frontleft;
   private DcMotor Backleft;
   private DcMotor Frontright;
@@ -22,18 +22,18 @@ public class Autonomous3 extends LinearOpMode{
   private Servo Clamp;
   
   public void runOpMode(){
-     Frontleft = hardwareMap.get(DcMotor.class, "Front left");
-    Backleft = hardwareMap.get(DcMotor.class, "Back left");
-    Frontright = hardwareMap.get(DcMotor.class, "Front right");
-    Backright = hardwareMap.get(DcMotor.class, "Back right");
+    Frontleft = hardwareMap.get(DcMotor.class, "frontLeft");
+    Backleft = hardwareMap.get(DcMotor.class, "backLeft");
+    Frontright = hardwareMap.get(DcMotor.class, "frontRight");
+    Backright = hardwareMap.get(DcMotor.class, "backRight");
     Frontleft.setDirection(DcMotorSimple.Direction.REVERSE);
     Backleft.setDirection(DcMotorSimple.Direction.REVERSE);
-    Intakewheels = hardwareMap.get(DcMotor.class, "Intake wheels");
-    Transfer = hardwareMap.get(DcMotor.class, "Transfer ");
-    Shooterwheel = (DcMotorEx)hardwareMap.get(DcMotor.class, "Shooter wheel");
-    Arm = hardwareMap.get(DcMotor.class, "Arm");
-    Kicker = hardwareMap.get(Servo.class,"Kicker");
-    Clamp = hardwareMap.get(Servo.class, "Clamp");
+    Intakewheels = hardwareMap.get(DcMotor.class, "intakeWheels");
+    Transfer = hardwareMap.get(DcMotor.class, "transfer ");
+    Shooterwheel = (DcMotorEx)hardwareMap.get(DcMotor.class, "shooterWheel");
+    Arm = hardwareMap.get(DcMotor.class, "arm");
+    Kicker = hardwareMap.get(Servo.class,"kicker");
+    Clamp = hardwareMap.get(Servo.class, "clamp");
     
     waitForStart();
    

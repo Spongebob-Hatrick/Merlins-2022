@@ -123,7 +123,8 @@ public class Test15 extends LinearOpMode {
       }
     }
 }
-    /*waitForStart();
+
+/*waitForStart();
     if (opModeIsActive()) {
       while (opModeIsActive()) {
         telemetry.update();
