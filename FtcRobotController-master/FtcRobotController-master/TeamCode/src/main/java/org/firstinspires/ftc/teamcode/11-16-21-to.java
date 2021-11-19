@@ -113,5 +113,5 @@ public class Stubby_TO_11_9_21 extends LinearOpMode {
     }
 }
 /* Encoder resolution formula: ((((1+(46/17))) * (1+(46/11))) * 28)
-Approximatley 538 ticks per revolution*/
+Approximatly 538 ticks per revolution*/
 

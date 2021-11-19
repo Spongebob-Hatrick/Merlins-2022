@@ -1,0 +1,4 @@
+The curve equation:
+-0.01550x^2+0.5467x+97.77
+
+x = ticks/538 * 100
