@@ -1,0 +1,707 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
+
+
+import java.util.List;
+import org.firstinspires.ftc.robotcore.external.ClassFactory;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
+import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
+import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
+
+
+@Autonomous(name = "red5Vision", group = "Camera")
+
+public class red5Vision extends LinearOpMode {
+    private VuforiaLocalizer vuforia;
+    private TFObjectDetector tfod;
+    private DcMotorEx frontLeft;
+    private DcMotorEx backLeft;
+    private DcMotorEx frontRight;
+    private DcMotorEx backRight;
+    private DcMotorEx intakeMotor;
+    private DcMotorEx ladder;
+    private DcMotorEx carousel1;
+    private DcMotorEx carousel2;
+    private Servo basket;
+    private ElapsedTime runtime = new ElapsedTime();
+
+    private static final String TFOD_MODEL_ASSET = "model_20220217_172623.tflite";
+    private static final String[] LABELS = {
+            "Capstone"
+    };
+
+    private static final String VUFORIA_KEY =
+            " AaFKb9P/////AAABmf9YU2k5E0uptgyS3sZNGKFLquCEbN2J0+e0qcFuwRoAmW6O8cdBmRfoman77xLxndUhkLDQLA8XnO3EAqkWYM8pzR3jKVVTP1G0b902L0oXmcyJoRJr9oAqRrHpCCAf4aMFwPKYqRRD7Q7DEdFXOvTawcjqY33JYPO8/jzrKDFs9NaDodY2DX0T4Rl03cNZi9WQRqMzeG9Jdg05G4zSJ0l7D5XVun5Bai1kZ2p2bCIKiggV86+RAxpSTeexVi4i69M/Q+mHRljW7wZZlKsJ/47r+0xOwL/GCLVkPyDDjViSJtp9uX+7LDspVewKwODSo985FAZGNpjw1MGc8wr/u2qrjMEdnVoDtLqmKK2vJqnK ";
+
+    @Override
+    public void runOpMode() {
+        frontLeft = (DcMotorEx) hardwareMap.get(DcMotor.class, "frontLeft");
+        backLeft = (DcMotorEx) hardwareMap.get(DcMotor.class, "backLeft");
+        frontRight = (DcMotorEx) hardwareMap.get(DcMotor.class, "frontRight");
+        backRight = (DcMotorEx) hardwareMap.get(DcMotor.class, "backRight");
+        frontRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        backRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        intakeMotor = (DcMotorEx) hardwareMap.get(DcMotor.class, "intakeMotor");
+        ladder = (DcMotorEx) hardwareMap.get(DcMotor.class, "ladder");
+        carousel1 = (DcMotorEx) hardwareMap.get(DcMotor.class, "carousel1");
+        carousel2 = (DcMotorEx) hardwareMap.get(DcMotor.class, "carousel2");
+        basket = hardwareMap.get(Servo.class, "basket");
+
+        backLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        frontLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        frontRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        backRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        backLeft.setTargetPosition(0);
+        frontLeft.setTargetPosition(0);
+        frontRight.setTargetPosition(0);
+        backRight.setTargetPosition(0);
+
+        backLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        frontLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        frontRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        backRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        initVuforia();
+        initTfod();
+        runtime.reset();
+
+        if (tfod != null) {
+            tfod.activate();
+            tfod.setZoom(1, 16.0/9.0);
+        }
+
+        telemetry.addData(">", "Press Play to start op mode");
+        telemetry.update();
+        waitForStart();
+
+        if (opModeIsActive()) {
+            while (opModeIsActive()) {
+
+                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                setTargetPos(-175, false, false, false, false);
+                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                setMotorPower(.25f);
+
+                while (frontLeft.isBusy()){}
+
+                stopBot();
+                boolean foundCapstone = false;
+                int counter = 0;
+
+                sleep(2000);
+                //Drive up a bit
+
+                ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                while (!foundCapstone || counter < 2) {
+                    if (tfod != null) {
+
+                        List<Recognition> updatedRecognitions = tfod.getUpdatedRecognitions();
+
+                        if (updatedRecognitions == null && counter == 0) {
+                            telemetry.addData("No capstone found at level 2", "Move to Right");
+                            telemetry.update();
+                            setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                            setTargetPos(-300, true, false, false, false);
+                            setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                            setMotorPower(.25f);
+
+                            while (frontLeft.isBusy()) {
+                            }
+
+                            foundCapstone = false;
+                            counter++;
+
+                            sleep(2000);
+                            stopBot();
+                        //Drive to the right just if the Capstone is not in the middle.
+                        }
+                        //////////////////////////////////////////////////////////////
+                        //////////////////////////////////////////////////////////////
+
+                        if (updatedRecognitions != null && counter == 1) {
+                                for (Recognition recognition : updatedRecognitions) {
+                                    if (recognition.getLabel().equals("Capstone") && counter == 1) {
+                                    telemetry.addData("Capstone at level 3", "");
+                                    telemetry.update();
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-200, false, false, true, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //turn right a bit
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-470, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //go up to tree
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ladder.setTargetPosition(2300);
+                                    ladder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    ladder.setVelocity(2500);
+
+                                    while (ladder.isBusy()) {
+                                    }
+                                    ladder.setPower(0);
+
+                                    stopBot();
+                                    sleep(500);
+                                    //the 3rd level
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    basket.setDirection(Servo.Direction.FORWARD);
+                                    basket.setPosition(0.825);
+                                    sleep(1000);
+                                    stopBot();
+                                    //opens basket
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    basket.setDirection(Servo.Direction.REVERSE);
+                                    basket.setPosition(.845);
+                                    stopBot();
+                                    // closes basket
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    ladder.setTargetPosition(0);
+                                    ladder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    ladder.setVelocity(1000);
+
+                                    while (ladder.isBusy()) {
+                                    }
+                                    ladder.setPower(0);
+                                    stopBot();
+                                    //returns ladder to 0
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(270, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //back up a bit
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-200, false, false, false, true);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+
+                                    stopBot();
+                                    //turn left a bit
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-1480, false, true, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.3f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //crab walk to line up to the carousel
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(390, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.14f);
+
+                                    while (backRight.isBusy()) {
+
+                                    }
+                                    stopBot();
+                                    // reverse to carousel
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    frontLeft.setVelocity(10);
+                                    frontRight.setVelocity(10);
+                                    backLeft.setVelocity(10);
+                                    backRight.setVelocity(10);
+                                    carousel1.setVelocity(-1000);
+                                    sleep(5000);
+                                    stopBot();
+                                    //duck
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    carousel1.setPower(0);
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-525, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //move into the shipping hub & end of sequence
+
+                                    foundCapstone = true;
+                                    counter = counter + 3;
+                                    sleep(10000);
+
+
+                                }
+                            //Closing the For Recognition bracket
+                            }
+                            //////////////////////////////////////////////////////
+                            //////////////////////////////////////////////////////
+                            //////////////////////////////////////////////////////
+                                //If the Capstone is found, the program doesn't have enough time to run this
+                                //If not found, the program will run this level 1
+                                {
+
+                                telemetry.addData("Capstone at level 1", "");
+                                telemetry.update();
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(-200, false, false, true, false);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.25f);
+
+                                while (frontLeft.isBusy()) {
+                                }
+                                stopBot();
+                                //turn right a bit
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(-480, false, false, false, false);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.25f);
+
+                                while (frontLeft.isBusy()) {
+                                }
+                                stopBot();
+                                //go up to tree
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ladder.setTargetPosition(600);
+                                ladder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                ladder.setVelocity(1500);
+
+                                while (ladder.isBusy()) {
+                                }
+                                ladder.setPower(0);
+
+                                stopBot();
+                                sleep(500);
+                                //the 1st level
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                basket.setDirection(Servo.Direction.FORWARD);
+                                basket.setPosition(0.825);
+                                sleep(1000);
+                                stopBot();
+                                //opens basket
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                basket.setDirection(Servo.Direction.REVERSE);
+                                basket.setPosition(.845);
+                                stopBot();
+                                // closes basket
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                /////////////////////////////////////////////////////////////////////////////////////
+                                ladder.setTargetPosition(0);
+                                ladder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                ladder.setVelocity(600);
+
+                                while (ladder.isBusy()) {
+                                }
+                                ladder.setPower(0);
+                                stopBot();
+                                //returns ladder to 0
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(300, false, false, false, false);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.25f);
+
+                                while (frontLeft.isBusy()) {
+                                }
+                                stopBot();
+                                //back up a bit
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(-200, false, false, false, true);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.25f);
+
+                                while (frontLeft.isBusy()) {
+                                }
+
+                                stopBot();
+                                //turn left a bit
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(-1475, false, true, false, false);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.25f);
+
+                                while (frontLeft.isBusy()) {
+                                }
+                                stopBot();
+                                //crab walk to line up to the carousel
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(400, false, false, false, false);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.14f);
+
+                                while (backRight.isBusy()) {
+                                }
+                                stopBot();
+                                // reverse to carousel
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                frontLeft.setVelocity(10);
+                                frontRight.setVelocity(10);
+                                backLeft.setVelocity(10);
+                                backRight.setVelocity(10);
+                                carousel1.setVelocity(-800);
+                                sleep(7000);
+                                stopBot();
+                                //duck
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                ////////////////////////////////////////////////////////////////////////////////////
+                                carousel1.setPower(0);
+                                setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                setTargetPos(-525, false, false, false, false);
+                                setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                setMotorPower(.25f);
+
+                                while (frontLeft.isBusy()) {
+                                }
+                                stopBot();
+                                //move into the shipping hub & end of sequence
+
+                                foundCapstone = true;
+                                counter = counter + 3;
+                                sleep(10000);
+                            }
+                        }
+
+////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+
+                        //Will run if Capstone is found at level 2
+                        if (updatedRecognitions != null && counter ==0) {
+                            telemetry.addData("# Object Detected", updatedRecognitions.size());
+                            // step through the list of recognitions and display boundary info.
+                            for (Recognition recognition : updatedRecognitions) {
+                                if (recognition.getLabel().equals("Capstone") && counter== 0) {
+
+                                    telemetry.addData("Capstone found at level 2", "");
+                                    telemetry.update();
+
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-280, false, false, true, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //turn right a bit
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-625, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()) {
+                                    }
+                                    stopBot();
+                                    //go up to tree
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ladder.setTargetPosition(1350);
+                                    ladder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    ladder.setVelocity(1500);
+
+                                    while (ladder.isBusy()) {
+                                    }
+                                    ladder.setPower(0);
+
+                                    stopBot();
+                                    sleep(500);
+                                    //the 2nd level
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    basket.setDirection(Servo.Direction.FORWARD);
+                                    basket.setPosition(0.825);
+                                    sleep(1000);
+                                    stopBot();
+                                    //opens basket
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    basket.setDirection(Servo.Direction.REVERSE);
+                                    basket.setPosition(.845);
+                                    stopBot();
+                                    // closes basket
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    /////////////////////////////////////////////////////////////////////////////////////
+                                    ladder.setTargetPosition(0);
+                                    ladder.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    ladder.setVelocity(600);
+
+                                    while (ladder.isBusy()) {
+                                    }
+                                    ladder.setPower(0);
+                                    stopBot();
+                                    //returns ladder to 0
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(360, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()){
+                                    }
+                                    stopBot();
+                                    //back up a bit
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-330, false, false, false, true);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()){}
+
+                                    stopBot();
+                                    //turn left a bit
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-1300, false, true, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()){}
+                                    stopBot();
+                                    //crab walk to line up to the carousel
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(375, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.14f);
+
+                                    while (backRight.isBusy()){
+
+                                    }
+                                    stopBot();
+                                    // reverse to carousel
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    frontLeft.setVelocity(10);
+                                    frontRight.setVelocity(10);
+                                    backLeft.setVelocity(10);
+                                    backRight.setVelocity(10);
+                                    carousel1.setVelocity(-800);
+                                    sleep(7000);
+                                    stopBot();
+                                    //duck
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    ////////////////////////////////////////////////////////////////////////////////////
+                                    carousel1.setPower(0);
+                                    setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                                    setTargetPos(-525, false, false, false, false);
+                                    setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                                    setMotorPower(.25f);
+
+                                    while (frontLeft.isBusy()){}
+                                    stopBot();
+                                    //move into the shipping hub & end of sequence
+
+                                    foundCapstone = true;
+                                    tfod.shutdown();
+                                    counter = counter + 3;
+                                    sleep(10000);
+                                    break;
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////
+
+    private void initVuforia() {
+        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters();
+        parameters.vuforiaLicenseKey = VUFORIA_KEY;
+        parameters.cameraName = hardwareMap.get(WebcamName.class, "dysonsEye");
+        vuforia = ClassFactory.getInstance().createVuforia(parameters);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    private void initTfod() {
+        int tfodMonitorViewId = hardwareMap.appContext.getResources().getIdentifier(
+                "tfodMonitorViewId", "id", hardwareMap.appContext.getPackageName());
+        TFObjectDetector.Parameters tfodParameters = new TFObjectDetector.Parameters(tfodMonitorViewId);
+        tfodParameters.minResultConfidence = 0.8f;
+        tfodParameters.isModelTensorFlow2 = true;
+        tfodParameters.inputSize = 320;
+        tfod = ClassFactory.getInstance().createTFObjectDetector(tfodParameters, vuforia);
+        tfod.loadModelFromAsset("model_20220217_172623.tflite", LABELS);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    void setPower(float powerStrafe, float powerForward, float powerTurn) {
+
+        double p1 = -powerStrafe + powerForward - powerTurn;
+        double p2 = powerStrafe + powerForward - powerTurn;
+        double p3 = -powerStrafe + powerForward + powerTurn;
+        double p4 = powerStrafe + powerForward + powerTurn;
+        double max = Math.max(1.0, Math.abs(p1));
+        max = Math.max(max, Math.abs(p2));
+        max = Math.max(max, Math.abs(p3));
+        max = Math.max(max, Math.abs(p4));
+        p1 /= max;
+        p2 /= max;
+        p3 /= max;
+        p4 /= max;
+        frontLeft.setPower(p1);
+        backLeft.setPower(p2);
+        frontRight.setPower(p3);
+        backRight.setPower(p4);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    private void stopBot() {
+        backLeft.setPower(0);
+        frontLeft.setPower(0);
+        frontRight.setPower(0);
+        backRight.setPower(0);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    void setMotorPower(double power) {
+        frontLeft.setPower(power);
+        frontRight.setPower(power);
+        backLeft.setPower(power);
+        backRight.setPower(power);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    public void moveForward() {
+        setPower(0, -.3f, 0);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    public void moveBackward() {
+        setPower(0, .3f, 0);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    public void strafeLeft() {
+        setPower(.3f, 0, 0);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    public void strafeRight() {
+        setPower(-.3f, 0, 0);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    public void turnLeft() {
+        setPower(0, 0, -.3f);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    public void turnRight() {
+        setPower(0, 0, .3f);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    void setTargetPos(int encTicks, boolean isStrafingRight, boolean isStrafingLeft,
+                      boolean isTurningRight, boolean isTurningLeft) {
+        int pos1 = encTicks;
+        int pos2 = encTicks;
+        int pos3 = encTicks;
+        int pos4 = encTicks;
+        //strafing right
+        if (isStrafingRight == true) {
+            pos1 = -encTicks;
+            pos2 = encTicks;
+            pos3 = -encTicks;
+            pos4 = encTicks;
+        }
+        //strafing left
+        if (isStrafingLeft == true) {
+            pos1 = encTicks;
+            pos2 = -encTicks;
+            pos3 = encTicks;
+            pos4 = -encTicks;
+        }
+        if (isTurningRight == true) {
+            pos1 = encTicks;
+            pos2 = encTicks;
+            pos3 = -encTicks;
+            pos4 = -encTicks;
+        }
+        if (isTurningLeft) {
+            pos1 = -encTicks;
+            pos2 = -encTicks;
+            pos3 = encTicks;
+            pos4 = encTicks;
+        }
+        backLeft.setTargetPosition(pos1);
+        frontLeft.setTargetPosition(pos2);
+        frontRight.setTargetPosition(pos3);
+        backRight.setTargetPosition(pos4);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////
+    void setMode(DcMotor.RunMode mode) {
+        frontRight.setMode(mode);
+        frontLeft.setMode(mode);
+        backRight.setMode(mode);
+        backLeft.setMode(mode);
+    }
+}
